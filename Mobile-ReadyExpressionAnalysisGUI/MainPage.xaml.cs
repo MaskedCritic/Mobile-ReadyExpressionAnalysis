@@ -21,8 +21,8 @@ using System.Numerics;
 using Windows.Graphics;
 using Windows.UI.Composition;
 using Windows.UI.Xaml.Hosting;
-
-// The Blank Page item template is documented at https://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x409
+using Windows.UI.ViewManagement;
+using Windows.UI.Popups;
 
 namespace Mobile_ReadyExpressionAnalysisGUI
 {
@@ -52,6 +52,21 @@ namespace Mobile_ReadyExpressionAnalysisGUI
         public MainPage()
         {
             this.InitializeComponent();
+
+            ApplicationView.GetForCurrentView().SetPreferredMinSize(
+               new Size(539, 285));
+
+            if (!GraphicsCaptureSession.IsSupported())
+            {
+                IsEnabled = false;
+
+                var dialog = new MessageDialog(
+                    "Screen capture is not supported on this device for this release of Windows!",
+                    "Screen capture unsupported");
+
+                var ignored = dialog.ShowAsync();
+                return;
+            }
         }
 
         private async void Capture_Click(object sender, RoutedEventArgs e)
@@ -149,6 +164,21 @@ namespace Mobile_ReadyExpressionAnalysisGUI
                 byte[] rawImage = canvasBitmap.GetPixelBytes();
 
                 // send raw image bytes to C++ module for processing
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
                 // Helper that handles the drawing for us.
                 //FillSurfaceWithBitmap(canvasBitmap);

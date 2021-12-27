@@ -1,0 +1,14 @@
+Assignment 0:
+Remove everything involving recording from the simple recorder project. due december 26th
+
+Assignment 0.5:
+Create a program that has a grid box that cycles through a sequence of colors. Due 27th
+
+Assignment 1:
+Make the program display a preview of the captured window, with a box in the top right that changes colors on a cycle. due 28th
+
+Assignment 1.5:
+Create a program that cycles through a sequence of sounds. Due 30th
+
+Assignment 2:
+Connect the presence of the box that changes colors from assignment 0.5 to an options menu. When off, have the box invisible, and have it cycle through a sequence of sounds. Due January 3rd
