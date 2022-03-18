@@ -6,7 +6,9 @@ using System.Threading.Tasks;
 
 namespace Mobile_ReadyExpressionAnalysisBusiness
 {
-    public class Class1
+    public static class StateModel
     {
+        public static int State { get; set; }
+
     }
 }

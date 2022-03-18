@@ -1,28 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.WindowsRuntime;
+using System.Diagnostics;
 using Windows.Graphics.Capture;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
+using Windows.Graphics.DirectX.Direct3D11;
+using Windows.Media.MediaProperties;
+using Windows.Storage;
+using Windows.UI.Popups;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Controls.Primitives;
-using Windows.UI.Xaml.Data;
-using Windows.UI.Xaml.Input;
-using Windows.UI.Xaml.Media;
-using Windows.UI.Xaml.Navigation;
-using Microsoft.Graphics.Canvas;
-using Microsoft.Graphics.Canvas.UI.Composition;
-using Windows.Graphics.DirectX;
-using System.Numerics;
-using Windows.Graphics;
-using Windows.UI.Composition;
-using Windows.UI.Xaml.Hosting;
+using Windows.Foundation;
 using Windows.UI.ViewManagement;
-using Windows.UI.Popups;
+using Windows.UI.Xaml.Hosting;
+using System.Numerics;
+using Windows.UI.Composition;
+using Windows.UI.Xaml.Navigation;
+using Windows.UI.Xaml.Media;
+using Windows.UI;
+using Windows.Media.SpeechSynthesis;
+
+// The Blank Page item template is documented at https://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x409
 
 namespace Mobile_ReadyExpressionAnalysisGUI
 {
@@ -31,23 +27,15 @@ namespace Mobile_ReadyExpressionAnalysisGUI
     /// </summary>
     public sealed partial class MainPage : Page
     {
-        // Import Mobile-ReadyExpressionAnalysisBusiness.dll and define the method
-        [DllImport("Mobile-ReadyExpressionAnalysisBusiness.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        private static extern int AnalyzeImage(byte[] rawImage, object model);
+        private IDirect3DDevice _device;
 
-        // Capture API objects.
-        private SizeInt32 _lastSize;
-        private GraphicsCaptureItem _item;
-        private Direct3D11CaptureFramePool _framePool;
-        private GraphicsCaptureSession _session;
+        private CapturePreview _preview;
+        private SpriteVisual _previewVisual;
+        private CompositionSurfaceBrush _previewBrush;
 
-        // Non-API related members.
-        private CanvasDevice _canvasDevice;
-        private CompositionGraphicsDevice _compositionGraphicsDevice;
-        private Compositor _compositor;
-        private CompositionDrawingSurface _surface;
-        private CanvasBitmap _currentFrame;
-        private string _screenshotFilename = "test.png";
+        private int cycle = 0;
+        private SpeechSynthesizer synth;
+        private List<OutputItem> outputItems;
 
         public MainPage()
         {
@@ -67,162 +55,200 @@ namespace Mobile_ReadyExpressionAnalysisGUI
                 var ignored = dialog.ShowAsync();
                 return;
             }
+
+            var compositor = Window.Current.Compositor;
+            _previewBrush = compositor.CreateSurfaceBrush();
+            _previewBrush.Stretch = CompositionStretch.Uniform;
+            var shadow = compositor.CreateDropShadow();
+            shadow.Mask = _previewBrush;
+            _previewVisual = compositor.CreateSpriteVisual();
+            _previewVisual.RelativeSizeAdjustment = Vector2.One;
+            _previewVisual.Brush = _previewBrush;
+            _previewVisual.Shadow = shadow;
+            ElementCompositionPreview.SetElementChildVisual(CapturePreviewGrid, _previewVisual);
+
+            _device = D3DDeviceManager.Device;
+
+            outputItems = new List<OutputItem>();
+            outputItems.Add(new OutputItem()
+            {
+                DisplayName = "Visual Mode",
+                DisplayStyle = 0
+            });
+            outputItems.Add(new OutputItem()
+            {
+                DisplayName = "Colorblind Mode",
+                DisplayStyle = 1
+            });
+            outputItems.Add(new OutputItem()
+            {
+                DisplayName = "Audio Mode",
+                DisplayStyle = 2
+            });
+            optionsBox.ItemsSource = outputItems;
+            optionsBox.SelectedIndex = GetStartingIndex();
+
+            // The object for controlling the speech synthesis engine (voice).
+            synth = new Windows.Media.SpeechSynthesis.SpeechSynthesizer();
         }
 
-        private async void Capture_Click(object sender, RoutedEventArgs e)
+        private int GetStartingIndex()
         {
-            // The GraphicsCapturePicker follows the same pattern the
-            // file pickers do.
-            var picker = new GraphicsCapturePicker();
-            GraphicsCaptureItem item = await picker.PickSingleItemAsync();
+            ApplicationDataContainer settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+            return (int)settings.Containers["Options"].Values["Output"];
+        }
 
-            // The item may be null if the user dismissed the
-            // control without making a selection or hit Cancel.
+        private async void CaptureButton_Click(object sender, RoutedEventArgs e)
+        {
+            var picker = new GraphicsCapturePicker();
+            var item = await picker.PickSingleItemAsync();
             if (item != null)
             {
-                StartCaptureInternal(item);
+                StartPreview(item);
+            }
+            else
+            {
+                StopPreview();
             }
         }
-
-        private void StartCaptureInternal(GraphicsCaptureItem item)
+        private void StartPreview(GraphicsCaptureItem item)
         {
-            // Stop the previous capture if we had one.
-            StopCapture();
+            PreviewContainerGrid.RowDefinitions[1].Height = new GridLength(2, GridUnitType.Star);
+            CapturePreviewGrid.Visibility = Visibility.Visible;
+            CaptureInfoTextBlock.Text = item.DisplayName;
 
-            _item = item;
-            _lastSize = _item.Size;
-
-            _framePool = Direct3D11CaptureFramePool.Create(
-               _canvasDevice, // D3D device
-               DirectXPixelFormat.B8G8R8A8UIntNormalized, // Pixel format
-               2, // Number of frames
-               _item.Size); // Size of the buffers
-
-            _framePool.FrameArrived += (s, a) =>
-            {
-                // The FrameArrived event is raised for every frame on the thread
-                // that created the Direct3D11CaptureFramePool. This means we
-                // don't have to do a null-check here, as we know we're the only
-                // one dequeueing frames in our application.  
-
-                // NOTE: Disposing the frame retires it and returns  
-                // the buffer to the pool.
-
-                using (var frame = _framePool.TryGetNextFrame())
-                {
-                    ProcessFrame(frame);
-                }
-            };
-
-            _item.Closed += (s, a) =>
-            {
-                StopCapture();
-            };
-
-            _session = _framePool.CreateCaptureSession(_item);
-            _session.StartCapture();
+            var compositor = Window.Current.Compositor;
+            _preview?.Dispose();
+            _preview = new CapturePreview(_device, item, AnalysisOutput);
+            var surface = _preview.CreateSurface(compositor);
+            _previewBrush.Surface = surface;
+            _preview.StartCapture();
         }
 
-        public void StopCapture()
+        private void StopPreview()
         {
-            _session?.Dispose();
-            _framePool?.Dispose();
-            _item = null;
-            _session = null;
-            _framePool = null;
+            PreviewContainerGrid.RowDefinitions[1].Height = new GridLength(0);
+            CapturePreviewGrid.Visibility = Visibility.Collapsed;
+            CaptureInfoTextBlock.Text = "Pick something to capture";
+            _preview?.Dispose();
+            _preview = null;
+
         }
 
-        private void ProcessFrame(Direct3D11CaptureFrame frame)
+        // called by the business layer to output analysis
+        public async void AnalysisOutput(int output)
         {
-            // Resize and device-lost leverage the same function on the
-            // Direct3D11CaptureFramePool. Refactoring it this way avoids
-            // throwing in the catch block below (device creation could always
-            // fail) along with ensuring that resize completes successfully and
-            // isn’t vulnerable to device-lost.
-            bool needsReset = false;
-            bool recreateDevice = false;
+            ApplicationDataContainer settings = ApplicationData.Current.LocalSettings;
+            int outputType = optionsBox.SelectedIndex;
 
-            if ((frame.ContentSize.Width != _lastSize.Width) ||
-                (frame.ContentSize.Height != _lastSize.Height))
+            // if the option has changed, update the settings
+            if (optionsBox.SelectedIndex != (int)settings.Containers["Options"].Values["Output"])
             {
-                needsReset = true;
-                _lastSize = frame.ContentSize;
+                settings.Containers["Options"].Values["Output"] = optionsBox.SelectedIndex;
             }
 
-            try
+            switch (outputType)
             {
-                // Take the D3D11 surface and draw it into a  
-                // Composition surface.
-
-                // Convert our D3D11 surface into a Win2D object.
-                CanvasBitmap canvasBitmap = CanvasBitmap.CreateFromDirect3D11Surface(
-                    _canvasDevice,
-                    frame.Surface);
-
-                _currentFrame = canvasBitmap;
-
-                byte[] rawImage = canvasBitmap.GetPixelBytes();
-
-                // send raw image bytes to C++ module for processing
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                // Helper that handles the drawing for us.
-                //FillSurfaceWithBitmap(canvasBitmap);
-            }
-
-            // This is the device-lost convention for Win2D.
-            catch (Exception e) when (_canvasDevice.IsDeviceLost(e.HResult))
-            {
-                // We lost our graphics device. Recreate it and reset
-                // our Direct3D11CaptureFramePool.  
-                needsReset = true;
-                recreateDevice = true;
-            }
-
-            if (needsReset)
-            {
-                ResetFramePool(frame.ContentSize, recreateDevice);
-            }
-        }
-
-        private void ResetFramePool(SizeInt32 size, bool recreateDevice)
-        {
-            do
-            {
-                try
-                {
-                    if (recreateDevice)
+                case 0: // visual output
+                    switch (output)
                     {
-                        _canvasDevice = new CanvasDevice();
+                        case 1:
+                            colorBox.Fill.SetValue(SolidColorBrush.ColorProperty, Colors.Yellow);
+                            break;
+                        case 2:
+                            colorBox.Fill.SetValue(SolidColorBrush.ColorProperty, Colors.Blue);
+                            break;
+                        case 3:
+                            colorBox.Fill.SetValue(SolidColorBrush.ColorProperty, Colors.Red);
+                            break;
+                        case 4:
+                            colorBox.Fill.SetValue(SolidColorBrush.ColorProperty, Colors.Orange);
+                            break;
+                        case 5:
+                            colorBox.Fill.SetValue(SolidColorBrush.ColorProperty, Colors.Indigo);
+                            break;
+                        case 6:
+                            colorBox.Fill.SetValue(SolidColorBrush.ColorProperty, Colors.Lavender);
+                            break;
                     }
+                    break;
+                case 1: // visual output (colorblind)
+                    switch (output)
+                    {
+                        case 0:
+                            colorBox.Fill.SetValue(SolidColorBrush.ColorProperty, Colors.Yellow);
+                            break;
+                        case 1:
+                            colorBox.Fill.SetValue(SolidColorBrush.ColorProperty, Colors.Blue);
+                            break;
+                        case 2:
+                            colorBox.Fill.SetValue(SolidColorBrush.ColorProperty, Colors.Gray);
+                            break;
+                        case 3:
+                            colorBox.Fill.SetValue(SolidColorBrush.ColorProperty, Colors.Orange);
+                            break;
+                        case 4:
+                            colorBox.Fill.SetValue(SolidColorBrush.ColorProperty, Colors.Indigo);
+                            break;
+                        case 5:
+                            colorBox.Fill.SetValue(SolidColorBrush.ColorProperty, Colors.Lavender);
+                            break;
+                    }
+                    break;
+                case 2: // audio output
+                    switch (output)
+                    {
+                        case 0:
+                            // Generate the audio stream from plain text.
+                            SpeechSynthesisStream stream0 = await synth.SynthesizeTextToStreamAsync("Happy");
 
-                    _framePool.Recreate(
-                        _canvasDevice,
-                        DirectXPixelFormat.B8G8R8A8UIntNormalized,
-                        2,
-                        size);
-                }
-                // This is the device-lost convention for Win2D.
-                catch (Exception e) when (_canvasDevice.IsDeviceLost(e.HResult))
-                {
-                    _canvasDevice = null;
-                    recreateDevice = true;
-                }
-            } while (_canvasDevice == null);
+                            // Send the stream to the media object.
+                            mediaElement.SetSource(stream0, stream0.ContentType);
+                            mediaElement.Play();
+                            break;
+                        case 1:
+                            // Generate the audio stream from plain text.
+                            SpeechSynthesisStream stream1 = await synth.SynthesizeTextToStreamAsync("Sad");
+
+                            // Send the stream to the media object.
+                            mediaElement.SetSource(stream1, stream1.ContentType);
+                            mediaElement.Play();
+                            break;
+                        case 2:
+                            // Generate the audio stream from plain text.
+                            SpeechSynthesisStream stream2 = await synth.SynthesizeTextToStreamAsync("Anger");
+
+                            // Send the stream to the media object.
+                            mediaElement.SetSource(stream2, stream2.ContentType);
+                            mediaElement.Play();
+                            break;
+                        case 3:
+                            // Generate the audio stream from plain text.
+                            SpeechSynthesisStream stream3 = await synth.SynthesizeTextToStreamAsync("Surprise");
+
+                            // Send the stream to the media object.
+                            mediaElement.SetSource(stream3, stream3.ContentType);
+                            mediaElement.Play();
+                            break;
+                        case 4:
+                            // Generate the audio stream from plain text.
+                            SpeechSynthesisStream stream4 = await synth.SynthesizeTextToStreamAsync("Fear");
+
+                            // Send the stream to the media object.
+                            mediaElement.SetSource(stream4, stream4.ContentType);
+                            mediaElement.Play();
+                            break;
+                        case 5:
+                            // Generate the audio stream from plain text.
+                            SpeechSynthesisStream stream5 = await synth.SynthesizeTextToStreamAsync("Disgust");
+
+                            // Send the stream to the media object.
+                            mediaElement.SetSource(stream5, stream5.ContentType);
+                            mediaElement.Play();
+                            break;
+                    }
+                    break;
+            }
         }
     }
 }

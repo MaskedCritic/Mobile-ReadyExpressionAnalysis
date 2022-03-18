@@ -14,10 +14,16 @@ Assignment 2:
 Connect the presence of the box that changes colors from assignment 0.5 to an options menu. When off, have the box invisible, and have it cycle through a sequence of sounds. Due January 9th
 
 Assignment 3:
-Convert old training and testing program from python to C#. Due January 16th
+Convert old training and testing program from python to C#. Due January 16th CANCELLED
 
 Assignment 4:
 Finalize the initial GUI code and design in its own project separate from the SimpleRecorder project. Due January 20th.
 
 Assignment 5:
 Connect assignment 4 to assignment 3. Due ?
+
+Assignment 6:
+Finalize the model. Due February 20th.
+
+Assignment 7:
+Attach the model to the GUI. Due February 23rd.

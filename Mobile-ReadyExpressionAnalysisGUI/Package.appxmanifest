@@ -8,11 +8,11 @@
   IgnorableNamespaces="uap mp uap6">
 
   <Identity
-    Name="3bca15db-5646-4550-b333-0f9f1da2213e"
+    Name="1c12253d-9397-45cb-ac67-bbba292fac82"
     Publisher="CN=MrWai"
     Version="1.0.0.0" />
 
-  <mp:PhoneIdentity PhoneProductId="3bca15db-5646-4550-b333-0f9f1da2213e" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
+  <mp:PhoneIdentity PhoneProductId="1c12253d-9397-45cb-ac67-bbba292fac82" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
     <DisplayName>Mobile-ReadyExpressionAnalysisGUI</DisplayName>

@@ -1,20 +1,12 @@
 ﻿<Page
-    x:Class="SimpleRecorder.MainPage"
+    x:Class="Mobile_ReadyExpressionAnalysisGUI.MainPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:SimpleRecorder"
+    xmlns:local="using:Mobile_ReadyExpressionAnalysisGUI"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
-
-    <Page.Resources>
-        <Style TargetType="ComboBox" x:Key="OptionComboBoxStyle">
-            <Setter Property="Margin" Value="5" />
-            <Setter Property="MinWidth" Value="150" />
-            <Setter Property="HorizontalAlignment" Value="Center" />
-        </Style>
-    </Page.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
@@ -32,52 +24,26 @@
                 <RowDefinition Height="0" />
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
-
             <TextBlock x:Name="CaptureInfoTextBlock" Text="Pick something to capture" Style="{StaticResource SubtitleTextBlockStyle}" HorizontalAlignment="Stretch" HorizontalTextAlignment="Center" VerticalAlignment="Bottom" />
-
             <Grid x:Name="CapturePreviewGrid" Margin="15" Grid.Row="1" Visibility="Collapsed" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
-
             <Button x:Name="CaptureButton" Grid.Row="2" Margin="5" HorizontalAlignment="Center" VerticalAlignment="Top" Click="CaptureButton_Click">
                 <FontIcon Glyph="&#xE8FC;" FontFamily="Segoe MDL2 Assets" FontSize="24"  />
             </Button>
         </Grid>
 
-        <Grid Grid.Column="1">
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <TextBlock Text="Options" Style="{StaticResource SubtitleTextBlockStyle}" HorizontalAlignment="Stretch" HorizontalTextAlignment="Center" />
-                <ComboBox x:Name="ResolutionComboBox" Style="{StaticResource OptionComboBoxStyle}" ToolTipService.ToolTip="Resolution">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate x:DataType="local:ResolutionItem">
-                            <TextBlock Text="{x:Bind DisplayName}" />
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
-                <ComboBox x:Name="BitrateComboBox" Style="{StaticResource OptionComboBoxStyle}" ToolTipService.ToolTip="Bitrate">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate x:DataType="local:BitrateItem">
-                            <TextBlock Text="{x:Bind DisplayName}" />
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
-                <ComboBox x:Name="FrameRateComboBox" Style="{StaticResource OptionComboBoxStyle}" ToolTipService.ToolTip="Frame Rate">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate x:DataType="local:FrameRateItem">
-                            <TextBlock Text="{x:Bind DisplayName}" />
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
-            </StackPanel>
-        </Grid>
+        <Rectangle x:Name="colorBox" Grid.Column="1" HorizontalAlignment="Center" Height="100" Margin="0,505,0,0" Stroke="Black" VerticalAlignment="Top" Width="100">
+            <Rectangle.Fill>
+                <SolidColorBrush Color="Black" />
+            </Rectangle.Fill>
 
-        <Grid Grid.Row="1" Grid.ColumnSpan="2">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <Button x:Name="StartRecordingButton" Grid.Column="1" Content="Start Recording" HorizontalAlignment="Center" Margin="15" IsEnabled="False" Click="StartRecordingButton_Click" Style="{ThemeResource AccentButtonStyle}" />
-        </Grid>
-
+        </Rectangle>
+        <MediaElement x:Name="mediaElement" Grid.Column="1" HorizontalAlignment="Left" Height="100" Margin="375,672,0,0" VerticalAlignment="Top" Width="100"/>
+        <ComboBox x:Name="optionsBox" Grid.Column="1" Margin="0,145,0,0" Width="258" Height="54" Header="Output Style" ToolTipService.ToolTip="Output Style">
+            <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="local:OutputItem">
+                    <TextBlock Text="{x:Bind DisplayName}" />
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
     </Grid>
 </Page>

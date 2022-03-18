@@ -7,6 +7,7 @@ using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
+using Windows.Storage;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls.Primitives;
@@ -39,6 +40,28 @@ namespace Mobile_ReadyExpressionAnalysisGUI
         /// <param name="e">Details about the launch request and process.</param>
         protected override void OnLaunched(LaunchActivatedEventArgs e)
         {
+            ApplicationDataContainer settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+            try
+            {
+                // throws System.Exception if Options does not exist
+                settings.CreateContainer("Options", ApplicationDataCreateDisposition.Existing);
+
+                ApplicationDataContainer existingOptions = settings.Containers["Options"];
+                // already exists, check if Options is complete and add defaults if it is not
+                if (!existingOptions.Values.ContainsKey("Output"))
+                {
+                    existingOptions.Values["Output"] = 0;
+                }
+            }
+            catch (Exception)
+            {
+                // Options does not exist, set default
+                settings.CreateContainer("Options", ApplicationDataCreateDisposition.Always);
+
+                ApplicationDataContainer options = settings.Containers["Options"];
+                options.Values["Output"] = 0; // default to visual output
+
+            }
             Frame rootFrame = Window.Current.Content as Frame;
 
             // Do not repeat app initialization when the Window already has content,
