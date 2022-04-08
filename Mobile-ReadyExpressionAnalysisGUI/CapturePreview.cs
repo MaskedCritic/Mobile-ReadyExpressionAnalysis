@@ -6,6 +6,8 @@ using Windows.Graphics.DirectX.Direct3D11;
 using Windows.UI.Composition;
 using Mobile_ReadyExpressionAnalysisBusiness;
 using Microsoft.Graphics.Canvas;
+using Emgu.CV;
+using Emgu.CV.Face;
 
 namespace Mobile_ReadyExpressionAnalysisGUI
 {
@@ -15,8 +17,10 @@ namespace Mobile_ReadyExpressionAnalysisGUI
         private uint frameCount;
         private Action<int> analysisCallback;
         private ICanvasResourceCreator canvasDevice;
+        private CascadeClassifier faceFinder;
+        private FacemarkLBF landmarkFinder;
 
-        public CapturePreview(IDirect3DDevice device, GraphicsCaptureItem item, Action<int> callback)
+        public CapturePreview(IDirect3DDevice device, GraphicsCaptureItem item, Action<int> callback, CascadeClassifier face, FacemarkLBF landmark)
         {
             analysisCallback = callback;
             canvasDevice = CanvasDevice.CreateFromDirect3D11Device(device);
@@ -56,7 +60,10 @@ namespace Mobile_ReadyExpressionAnalysisGUI
 
             _framePool.FrameArrived += OnFrameArrived;
 
-            module = new AnalysisModule();
+            faceFinder = face;
+            landmarkFinder = landmark;
+            
+            module = new AnalysisModule(faceFinder, landmarkFinder);
             frameCount = 0;
         }
 
@@ -121,7 +128,7 @@ namespace Mobile_ReadyExpressionAnalysisGUI
                 {
                     // pass data to business layer for processing
                     CanvasBitmap bitmap = CanvasBitmap.CreateFromDirect3D11Surface(canvasDevice, frame.Surface);
-                    module.Analyze(bitmap.GetPixelBytes(), _item.Size.Width, _item.Size.Height, 4, analysisCallback);
+                    module.Analyze(bitmap, (int)bitmap.SizeInPixels.Width, (int)bitmap.SizeInPixels.Height, 4, analysisCallback);
                 }
 
             } // retire the frame

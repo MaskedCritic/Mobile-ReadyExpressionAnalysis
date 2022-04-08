@@ -5,24 +5,29 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
 using Emgu.CV;
 using Emgu.CV.Face;
 using Emgu.CV.Util;
 using MathNet.Numerics;
+using Microsoft.Graphics.Canvas;
+using Windows.Storage;
+using Windows.UI.Core;
 
 namespace Mobile_ReadyExpressionAnalysisBusiness
 {
     public class AnalysisModule
     {
         CascadeClassifier faceFinder;
+        FacemarkLBF landmarkFinder;
         private EmotionModel model;
-        readonly double gamma = 27;
+        readonly double gamma = 40000;
 
-        public AnalysisModule()
+        public AnalysisModule(CascadeClassifier face, FacemarkLBF landmark)
         {
-            faceFinder = new CascadeClassifier("haarcascade_frontalface_default.xml");
+            
             TextReader reader = null;
             model = new EmotionModel();
             string filepath = "EmotionModel.xml";
@@ -39,28 +44,39 @@ namespace Mobile_ReadyExpressionAnalysisBusiness
                     reader.Close();
                 }
             }
+            faceFinder = face;
+            landmarkFinder = landmark;
         }
 
-        public void Analyze(byte[] pixelBytes, int pixelWidth, int pixelHeight, int pixelStride, Action<int> analysisCallback)
+        public async void Analyze(CanvasBitmap bmp, int pixelWidth, int pixelHeight, int pixelStride, Action<int> analysisCallback)
         {
+            byte[] pixelBytes = bmp.GetPixelBytes();
+            //Windows.Storage.StorageFolder storageFolder = KnownFolders.SavedPictures;
+            //var file = await storageFolder.CreateFileAsync("sampleImage.bmp", CreationCollisionOption.ReplaceExisting);
+            //using (var fs = await file.OpenAsync(FileAccessMode.ReadWrite))
+            //{
+            //    await bmp.SaveAsync(fs, CanvasBitmapFileFormat.Bmp);
+            //}
+            //Thread.Sleep(10000);
             // convert unmanaged data to an OpenCV Image
+            //Mat test = CvInvoke.Imread(@"C:\Users\MrWai\Pictures\Saved Pictures\sampleImage.bmp");
             
-            IntPtr unmanagedPointer = Marshal.AllocHGlobal(pixelBytes.Length);
-            Marshal.Copy(pixelBytes, 0, unmanagedPointer, pixelBytes.Length);
             // Call unmanaged code
-            
-            Image<Emgu.CV.Structure.Bgra, Byte> toProcess = new Image<Emgu.CV.Structure.Bgra, byte>(pixelWidth, pixelHeight, pixelStride, unmanagedPointer);
-
-            Mat m = toProcess.Mat;
+            Mat m = new Mat(pixelHeight, pixelWidth, Emgu.CV.CvEnum.DepthType.Cv8U, pixelStride);
+            m.SetTo<byte>(pixelBytes);
             Mat gray = new Mat();
             CvInvoke.CvtColor(m, gray, Emgu.CV.CvEnum.ColorConversion.Bgra2Gray);
-
-            Rectangle[] faces = faceFinder.DetectMultiScale(gray);
             
+
+            //faceFinder = new CascadeClassifier("haarcascade_frontalface_alt.xml");
+            Rectangle[] faces = faceFinder.DetectMultiScale(gray);
+
             if (faces.Length == 0)
             {
-                StateModel.State = 0; // set emotion state to default
-                Marshal.FreeHGlobal(unmanagedPointer);
+                await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                {
+                    analysisCallback(0);
+                });
                 return; // no faces, abort analysis
             }
 
@@ -74,28 +90,31 @@ namespace Mobile_ReadyExpressionAnalysisBusiness
 
             if (faces.Length == 0)
             {
-                StateModel.State = 0; // set emotion state to default
-                Marshal.FreeHGlobal(unmanagedPointer);
+                await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                {
+                    analysisCallback(0);
+                });
                 return; // no faces, abort analysis
             }
 
             // Use facemark to locate the facial landmarks
-            FacemarkLBF finder = new FacemarkLBF(new FacemarkLBFParams());
-            finder.LoadModel("lbfmodel.yaml"); // model sourced from https://raw.githubusercontent.com/kurnianggoro/GSOC2017/master/data/lbfmodel.yaml
+            //FacemarkLBF finder = new FacemarkLBF(new FacemarkLBFParams());
+            //finder.LoadModel("lbfmodel.yaml"); // model sourced from https://raw.githubusercontent.com/kurnianggoro/GSOC2017/master/data/lbfmodel.yaml
 
             VectorOfRect regionOfInterest = new VectorOfRect();
             regionOfInterest.Push(faces);
 
             VectorOfVectorOfPointF facialLandmarks = new VectorOfVectorOfPointF();
-            bool landmarkSuccess = finder.Fit(resized, regionOfInterest, facialLandmarks);
+            bool landmarkSuccess = landmarkFinder.Fit(resized, regionOfInterest, facialLandmarks);
             if (!landmarkSuccess)
             {
-                StateModel.State = 0; // set emotion state to default
-                Marshal.FreeHGlobal(unmanagedPointer);
+                await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                {
+                    analysisCallback(0);
+                });
                 return; // algorithm failed, abort analysis
             }
 
-            Marshal.FreeHGlobal(unmanagedPointer);
 
             // convert the array of points to a 1d vector
             int landmarksCount = 68; // the LBF model used finds exactly 68 landmarks
@@ -127,7 +146,7 @@ namespace Mobile_ReadyExpressionAnalysisBusiness
                 smallestDistance = currentDistance;
                 analyzedEmotion = 3;
             }
-            
+
             currentDistance = Math.Abs(Distance.Manhattan(landmarksVector, model.Surprise));
 
             if (currentDistance < smallestDistance)
@@ -135,7 +154,7 @@ namespace Mobile_ReadyExpressionAnalysisBusiness
                 smallestDistance = currentDistance;
                 analyzedEmotion = 4;
             }
-            
+
             currentDistance = Math.Abs(Distance.Manhattan(landmarksVector, model.Fear));
 
             if (currentDistance < smallestDistance)
@@ -157,7 +176,11 @@ namespace Mobile_ReadyExpressionAnalysisBusiness
                 analyzedEmotion = 0;
             }
 
-            analysisCallback(analyzedEmotion);
+            await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                analysisCallback(analyzedEmotion);
+            });
+
         }
     }
 }

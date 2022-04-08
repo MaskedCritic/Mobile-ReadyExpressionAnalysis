@@ -17,6 +17,10 @@ using Windows.UI.Xaml.Navigation;
 using Windows.UI.Xaml.Media;
 using Windows.UI;
 using Windows.Media.SpeechSynthesis;
+using Mobile_ReadyExpressionAnalysisBusiness;
+using System.Threading;
+using Emgu.CV;
+using Emgu.CV.Face;
 
 // The Blank Page item template is documented at https://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x409
 
@@ -33,9 +37,12 @@ namespace Mobile_ReadyExpressionAnalysisGUI
         private SpriteVisual _previewVisual;
         private CompositionSurfaceBrush _previewBrush;
 
-        private int cycle = 0;
+        private int previousOutput = 0;
         private SpeechSynthesizer synth;
         private List<OutputItem> outputItems;
+
+        private CascadeClassifier faceFinder;
+        private FacemarkLBF landmarkFinder;
 
         public MainPage()
         {
@@ -90,6 +97,10 @@ namespace Mobile_ReadyExpressionAnalysisGUI
 
             // The object for controlling the speech synthesis engine (voice).
             synth = new Windows.Media.SpeechSynthesis.SpeechSynthesizer();
+
+            faceFinder = new CascadeClassifier("haarcascade_frontalface_alt.xml");
+            landmarkFinder = new FacemarkLBF(new FacemarkLBFParams());
+            landmarkFinder.LoadModel("lbfmodel.yaml");
         }
 
         private int GetStartingIndex()
@@ -119,10 +130,18 @@ namespace Mobile_ReadyExpressionAnalysisGUI
 
             var compositor = Window.Current.Compositor;
             _preview?.Dispose();
-            _preview = new CapturePreview(_device, item, AnalysisOutput);
+            _preview = new CapturePreview(_device, item, AnalysisOutput, faceFinder, landmarkFinder);
             var surface = _preview.CreateSurface(compositor);
             _previewBrush.Surface = surface;
             _preview.StartCapture();
+            int lastState = 0;
+            //while (true)
+            //{
+            //    if (StateModel.State != lastState)
+            //        AnalysisOutput(StateModel.State);
+            //    lastState = StateModel.State;
+            //    Thread.Sleep(500);
+            //}
         }
 
         private void StopPreview()
@@ -138,6 +157,11 @@ namespace Mobile_ReadyExpressionAnalysisGUI
         // called by the business layer to output analysis
         public async void AnalysisOutput(int output)
         {
+            if (output == previousOutput)
+            {
+                return;
+            }
+            previousOutput = output;
             ApplicationDataContainer settings = ApplicationData.Current.LocalSettings;
             int outputType = optionsBox.SelectedIndex;
 
@@ -175,22 +199,22 @@ namespace Mobile_ReadyExpressionAnalysisGUI
                 case 1: // visual output (colorblind)
                     switch (output)
                     {
-                        case 0:
+                        case 1:
                             colorBox.Fill.SetValue(SolidColorBrush.ColorProperty, Colors.Yellow);
                             break;
-                        case 1:
+                        case 2:
                             colorBox.Fill.SetValue(SolidColorBrush.ColorProperty, Colors.Blue);
                             break;
-                        case 2:
+                        case 3:
                             colorBox.Fill.SetValue(SolidColorBrush.ColorProperty, Colors.Gray);
                             break;
-                        case 3:
+                        case 4:
                             colorBox.Fill.SetValue(SolidColorBrush.ColorProperty, Colors.Orange);
                             break;
-                        case 4:
+                        case 5:
                             colorBox.Fill.SetValue(SolidColorBrush.ColorProperty, Colors.Indigo);
                             break;
-                        case 5:
+                        case 6:
                             colorBox.Fill.SetValue(SolidColorBrush.ColorProperty, Colors.Lavender);
                             break;
                     }
@@ -198,7 +222,7 @@ namespace Mobile_ReadyExpressionAnalysisGUI
                 case 2: // audio output
                     switch (output)
                     {
-                        case 0:
+                        case 1:
                             // Generate the audio stream from plain text.
                             SpeechSynthesisStream stream0 = await synth.SynthesizeTextToStreamAsync("Happy");
 
@@ -206,7 +230,7 @@ namespace Mobile_ReadyExpressionAnalysisGUI
                             mediaElement.SetSource(stream0, stream0.ContentType);
                             mediaElement.Play();
                             break;
-                        case 1:
+                        case 2:
                             // Generate the audio stream from plain text.
                             SpeechSynthesisStream stream1 = await synth.SynthesizeTextToStreamAsync("Sad");
 
@@ -214,7 +238,7 @@ namespace Mobile_ReadyExpressionAnalysisGUI
                             mediaElement.SetSource(stream1, stream1.ContentType);
                             mediaElement.Play();
                             break;
-                        case 2:
+                        case 3:
                             // Generate the audio stream from plain text.
                             SpeechSynthesisStream stream2 = await synth.SynthesizeTextToStreamAsync("Anger");
 
@@ -222,7 +246,7 @@ namespace Mobile_ReadyExpressionAnalysisGUI
                             mediaElement.SetSource(stream2, stream2.ContentType);
                             mediaElement.Play();
                             break;
-                        case 3:
+                        case 4:
                             // Generate the audio stream from plain text.
                             SpeechSynthesisStream stream3 = await synth.SynthesizeTextToStreamAsync("Surprise");
 
@@ -230,7 +254,7 @@ namespace Mobile_ReadyExpressionAnalysisGUI
                             mediaElement.SetSource(stream3, stream3.ContentType);
                             mediaElement.Play();
                             break;
-                        case 4:
+                        case 5:
                             // Generate the audio stream from plain text.
                             SpeechSynthesisStream stream4 = await synth.SynthesizeTextToStreamAsync("Fear");
 
@@ -238,7 +262,7 @@ namespace Mobile_ReadyExpressionAnalysisGUI
                             mediaElement.SetSource(stream4, stream4.ContentType);
                             mediaElement.Play();
                             break;
-                        case 5:
+                        case 6:
                             // Generate the audio stream from plain text.
                             SpeechSynthesisStream stream5 = await synth.SynthesizeTextToStreamAsync("Disgust");
 

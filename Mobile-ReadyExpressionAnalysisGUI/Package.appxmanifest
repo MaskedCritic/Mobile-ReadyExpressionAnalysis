@@ -16,7 +16,7 @@
 
   <Properties>
     <DisplayName>Mobile-ReadyExpressionAnalysisGUI</DisplayName>
-    <PublisherDisplayName>MrWai</PublisherDisplayName>
+    <PublisherDisplayName>Michael Waite</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
@@ -47,5 +47,6 @@
   <Capabilities>
     <Capability Name="internetClient" />
     <uap6:Capability Name="graphicsCapture"/>
+    <uap:Capability Name="picturesLibrary"/>
   </Capabilities>
 </Package>
