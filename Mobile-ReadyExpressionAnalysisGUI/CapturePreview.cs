@@ -124,7 +124,8 @@ namespace Mobile_ReadyExpressionAnalysisGUI
                     
                 }
 
-                if (frameCount % 32 == 0)
+                // perform analysis sporadically to reduce computational requirements
+                if (frameCount % 16 == 0)
                 {
                     // pass data to business layer for processing
                     CanvasBitmap bitmap = CanvasBitmap.CreateFromDirect3D11Surface(canvasDevice, frame.Surface);

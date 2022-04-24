@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using Windows.Graphics.Capture;
 using Windows.Graphics.DirectX.Direct3D11;
-using Windows.Media.MediaProperties;
 using Windows.Storage;
 using Windows.UI.Popups;
 using Windows.UI.Xaml;
@@ -13,12 +11,9 @@ using Windows.UI.ViewManagement;
 using Windows.UI.Xaml.Hosting;
 using System.Numerics;
 using Windows.UI.Composition;
-using Windows.UI.Xaml.Navigation;
 using Windows.UI.Xaml.Media;
 using Windows.UI;
 using Windows.Media.SpeechSynthesis;
-using Mobile_ReadyExpressionAnalysisBusiness;
-using System.Threading;
 using Emgu.CV;
 using Emgu.CV.Face;
 
@@ -98,7 +93,10 @@ namespace Mobile_ReadyExpressionAnalysisGUI
             // The object for controlling the speech synthesis engine (voice).
             synth = new Windows.Media.SpeechSynthesis.SpeechSynthesizer();
 
+            // Haar Cascades face detection algorithm
             faceFinder = new CascadeClassifier("haarcascade_frontalface_alt.xml");
+
+            // OpenCV Facemark facial landmark detection algorithm
             landmarkFinder = new FacemarkLBF(new FacemarkLBFParams());
             landmarkFinder.LoadModel("lbfmodel.yaml");
         }
@@ -134,14 +132,6 @@ namespace Mobile_ReadyExpressionAnalysisGUI
             var surface = _preview.CreateSurface(compositor);
             _previewBrush.Surface = surface;
             _preview.StartCapture();
-            int lastState = 0;
-            //while (true)
-            //{
-            //    if (StateModel.State != lastState)
-            //        AnalysisOutput(StateModel.State);
-            //    lastState = StateModel.State;
-            //    Thread.Sleep(500);
-            //}
         }
 
         private void StopPreview()
@@ -159,6 +149,7 @@ namespace Mobile_ReadyExpressionAnalysisGUI
         {
             if (output == previousOutput)
             {
+                // no change in expression detected, do not update the user
                 return;
             }
             previousOutput = output;
